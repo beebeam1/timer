@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Asset Timer</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #333;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .timer-container {
+            background: #fff;
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        /* 입력창 디자인 */
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .input-box { display: flex; flex-direction: column; align-items: center; }
+
+        input {
+            width: 70px;
+            height: 70px;
+            text-align: center;
+            font-size: 2rem;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            outline: none;
+        }
+
+        span { font-size: 0.7rem; color: #999; margin-top: 5px; font-weight: bold; }
+
+        /* 버튼 공통 디자인 */
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .btn {
+            width: 100px;  /* 이미지 크기에 맞춰 조절하세요 */
+            height: 50px; /* 이미지 크기에 맞춰 조절하세요 */
+            border: none;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { cursor: not-allowed; transform: none; }
+
+        /* 상태별 버튼 이미지 설정 */
+        /* 1. Start 버튼 */
+        #toggleBtn.start-default { background-image: url('../src/button/start-default.png'); }
+        #toggleBtn.start-disabled { background-image: url('../src/button/start-disabled.png'); }
+        #toggleBtn.pause { background-image: url('../src/button/pause.png'); }
+
+        /* 2. Reset 버튼 */
+        #resetBtn.reset-default { background-image: url('../src/button/reset-default.png'); }
+        #resetBtn.reset-disabled { background-image: url('../src/button/reset-disabled.png'); }
+
+    </style>
+</head>
+<body>
+
+<div class="timer-container">
+    <div class="input-group">
+        <div class="input-box">
+            <input type="number" id="hours" placeholder="00" min="0">
+            <span>HOURS</span>
+        </div>
+        <div class="input-box">
+            <input type="number" id="minutes" placeholder="00" min="0" max="59">
+            <span>MINUTES</span>
+        </div>
+        <div class="input-box">
+            <input type="number" id="seconds" placeholder="00" min="0" max="59">
+            <span>SECONDS</span>
+        </div>
+    </div>
+
+    <div class="button-group">
+        <button id="toggleBtn" class="btn start-disabled" disabled></button>
+        <button id="resetBtn" class="btn reset-disabled" disabled></button>
+    </div>
+</div>
+
+<script>
+    let timerId = null;
+    let totalSeconds = 0;
+    let isRunning = false;
+
+    const hourInp = document.getElementById('hours');
+    const minInp = document.getElementById('minutes');
+    const secInp = document.getElementById('seconds');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // 입력값 감지하여 버튼 상태 업데이트
+    function checkInputs() {
+        const h = parseInt(hourInp.value) || 0;
+        const m = parseInt(minInp.value) || 0;
+        const s = parseInt(secInp.value) || 0;
+        const hasValue = (h + m + s) > 0;
+
+        if (!isRunning) {
+            if (hasValue) {
+                setBtnState(toggleBtn, 'start-default', false);
+                setBtnState(resetBtn, 'reset-default', false);
+            } else {
+                setBtnState(toggleBtn, 'start-disabled', true);
+                setBtnState(resetBtn, 'reset-disabled', true);
+            }
+        }
+    }
+
+    // 버튼 이미지와 활성화 상태를 변경하는 헬퍼 함수
+    function setBtnState(btn, className, isDisabled) {
+        btn.className = 'btn ' + className;
+        btn.disabled = isDisabled;
+    }
+
+    [hourInp, minInp, secInp].forEach(input => {
+        input.addEventListener('input', checkInputs);
+    });
+
+    function updateDisplay(total) {
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        const s = total % 60;
+        hourInp.value = h > 0 ? h.toString().padStart(2, '0') : '';
+        minInp.value = m.toString().padStart(2, '0');
+        secInp.value = s.toString().padStart(2, '0');
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        if (!isRunning) {
+            // Start 시작
+            totalSeconds = (parseInt(hourInp.value) || 0) * 3600 + 
+                           (parseInt(minInp.value) || 0) * 60 + 
+                           (parseInt(secInp.value) || 0);
+
+            if (totalSeconds <= 0) return;
+
+            isRunning = true;
+            setBtnState(toggleBtn, 'pause', false);
+            setBtnState(resetBtn, 'reset-default', false); // 동작 중에도 리셋은 가능
+
+            timerId = setInterval(() => {
+                if (totalSeconds <= 0) {
+                    resetTimer();
+                    return;
+                }
+                totalSeconds--;
+                updateDisplay(totalSeconds);
+            }, 1000);
+        } else {
+            // 일시정지
+            clearInterval(timerId);
+            timerId = null;
+            isRunning = false;
+            setBtnState(toggleBtn, 'start-default', false);
+        }
+    });
+
+    function resetTimer() {
+        clearInterval(timerId);
+        timerId = null;
+        isRunning = false;
+        totalSeconds = 0;
+        
+        hourInp.value = '';
+        minInp.value = '';
+        secInp.value = '';
+        
+        // 초기 비활성화 상태로 복구
+        setBtnState(toggleBtn, 'start-disabled', true);
+        setBtnState(resetBtn, 'reset-disabled', true);
+    }
+
+    resetBtn.addEventListener('click', resetTimer);
+</script>
+
+</body>
+</html>
